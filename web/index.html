@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#101828" />
+    <title>Free Live Personal TV</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Free Live Personal TV</h1>
+      <p class="sub">One tap capture for mobile + web (Day-1 MVP)</p>
+      <button id="installBtn" class="secondary" hidden>Install Android App</button>
+      <p class="hint">Offline-first: snimanje radi i bez interneta.</p>
+
+      <section class="card">
+        <h2>Account</h2>
+        <p id="authStatusText" class="hint">Not logged in.</p>
+        <label>Avatar</label>
+        <select id="avatarSelect">
+          <option value="anonymous">Anonymous avatar</option>
+          <option value="male">Male avatar</option>
+          <option value="female">Female avatar</option>
+        </select>
+        <label style="display: flex; align-items: center; gap: 8px;">
+          <input id="anonymousToggle" type="checkbox" style="width: auto; margin: 0;" checked />
+          <span>Anonymous mode (hide identity)</span>
+        </label>
+        <div id="googleLoginBtn"></div>
+        <button id="guestLoginBtn" class="secondary">Continue as Guest</button>
+        <button id="logoutBtn" class="danger">Logout</button>
+      </section>
+
+      <section class="card">
+        <h2>Scan QR (LAN test)</h2>
+        <p class="hint">Skeniraj kod telefonom da odmah otvoriš app na lokalnoj IP adresi.</p>
+        <div class="row">
+          <button id="refreshQrBtn" class="secondary">Refresh QR</button>
+          <button id="copyLanBtn" class="secondary">Copy LAN Link</button>
+        </div>
+        <button id="shareLanBtn" class="secondary">Share Link</button>
+        <p id="qrUrlText" class="hint">Preparing QR...</p>
+        <img id="qrImage" alt="LAN URL QR code" style="width: 220px; max-width: 100%; border-radius: 10px; background: #fff; padding: 8px;" />
+        <label style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+          <input id="autoUploadToggle" type="checkbox" style="width: auto; margin: 0;" />
+          <span>Smart Sync: auto upload local videos when internet returns</span>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Closed Beta Pilot</h2>
+        <p class="hint">Request access for early pilot cohort (target 20–50 users).</p>
+        <label>Contact (optional)</label>
+        <input id="pilotContact" type="text" placeholder="email / telegram / signal" />
+        <label>Note (optional)</label>
+        <input id="pilotNote" type="text" placeholder="device model, availability, region" />
+        <button id="enrollPilotBtn" class="secondary">Request beta access</button>
+        <p id="pilotMyStatusText" class="hint">Beta status not loaded.</p>
+      </section>
+
+      <section class="card">
+        <h2>Feedback</h2>
+        <p class="hint">Share weekly product feedback; admin will batch into 7-day iterations.</p>
+        <label>Category</label>
+        <select id="feedbackCategory">
+          <option value="general">General</option>
+          <option value="capture">Capture</option>
+          <option value="playback">Playback</option>
+          <option value="upload">Upload</option>
+          <option value="ux">UX</option>
+          <option value="bug">Bug</option>
+        </select>
+        <label>Message</label>
+        <input id="feedbackMessage" type="text" placeholder="What should improve next week?" />
+        <label>Contact (optional)</label>
+        <input id="feedbackContact" type="text" placeholder="email / telegram" />
+        <button id="submitFeedbackBtn" class="secondary">Send feedback</button>
+        <p id="myFeedbackText" class="hint">Feedback not loaded.</p>
+      </section>
+
+      <section class="card">
+        <label>User ID</label>
+        <input id="userId" type="text" />
+        <label>Incident title (optional)</label>
+        <input id="incidentTitle" type="text" placeholder="What is happening?" />
+        <label>Tags (optional)</label>
+        <input id="incidentTags" type="text" placeholder="traffic, weather, protest" />
+        <label>Capture quality</label>
+        <select id="qualityPreset">
+          <option value="auto">Auto (recommended)</option>
+          <option value="high">High quality</option>
+          <option value="saver">Data saver</option>
+        </select>
+        <div class="row">
+          <button id="saveUserBtn" class="secondary">Save ID</button>
+          <button id="loadLimitsBtn" class="secondary">Load limits</button>
+        </div>
+        <p id="limitsText" class="hint">Limits not loaded.</p>
+      </section>
+
+      <section class="card">
+        <label>Processing mode</label>
+        <select id="processingMode">
+          <option value="device">Process on device</option>
+          <option value="server">Process on server</option>
+        </select>
+        <p class="hint">In Day-1, mode is saved in metadata for each video.</p>
+      </section>
+
+      <section class="card">
+        <video id="preview" autoplay playsinline muted></video>
+        <p id="captureCompatText" class="hint">Checking capture compatibility...</p>
+        <div class="row">
+          <button id="startBtn" class="primary">Start instantly</button>
+          <button id="stopBtn" class="danger" disabled>Stop</button>
+        </div>
+        <p id="statusText" class="hint">Ready.</p>
+      </section>
+
+      <section class="card">
+        <h2>Your videos</h2>
+        <button id="refreshVideosBtn" class="secondary">Refresh list</button>
+        <ul id="videosList"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Explore Videos</h2>
+        <label>Sort</label>
+        <select id="feedSort">
+          <option value="latest">Latest</option>
+          <option value="trending">Trending</option>
+          <option value="views">Most viewed</option>
+          <option value="rating">Top rated</option>
+        </select>
+        <button id="refreshFeedBtn" class="secondary">Refresh feed</button>
+        <ul id="feedList"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Licensing & Payouts</h2>
+        <p class="hint">Request content license and track creator/platform payout split.</p>
+        <label>Video ID for license request</label>
+        <input id="licenseVideoId" type="text" placeholder="video id" />
+        <label>Buyer name</label>
+        <input id="licenseBuyerName" type="text" placeholder="Media house" />
+        <label>Buyer contact</label>
+        <input id="licenseBuyerContact" type="text" placeholder="editor@example.com" />
+        <label>Amount (EUR cents)</label>
+        <input id="licenseAmountCents" type="number" min="0" value="1000" />
+        <label>Currency</label>
+        <input id="licenseCurrency" type="text" value="EUR" />
+        <label>Note (optional)</label>
+        <input id="licenseNote" type="text" placeholder="Usage rights details" />
+        <button id="requestLicenseBtn" class="secondary">Request license</button>
+        <p id="licenseStatusText" class="hint">License flow status.</p>
+
+        <label>License filter status</label>
+        <select id="licenseFilterStatus">
+          <option value="">All</option>
+          <option value="requested">Requested</option>
+          <option value="approved">Approved</option>
+          <option value="paid">Paid</option>
+          <option value="delivered">Delivered</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button id="refreshLicensesBtn" class="secondary">Refresh licenses</button>
+        <ul id="licensesList"></ul>
+
+        <button id="refreshPayoutsBtn" class="secondary">Refresh payouts</button>
+        <ul id="payoutsList"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Top Contributors</h2>
+        <button id="refreshLeaderboardBtn" class="secondary">Refresh leaderboard</button>
+        <ul id="leaderboardList"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Video Chat</h2>
+        <p id="chatVideoText" class="hint">Select a video from feed to open chat.</p>
+        <ul id="chatMessages"></ul>
+        <input id="chatMessageInput" type="text" placeholder="Write message..." />
+        <button id="sendChatBtn" class="secondary">Send message</button>
+      </section>
+
+      <section class="card">
+        <h2>Proof of Origin</h2>
+        <p class="hint">Daily merkle root pregled i anchor evidencija.</p>
+        <button id="refreshProofsBtn" class="secondary">Refresh proofs</button>
+        <p id="proofsSummaryText" class="hint">Proof list loading...</p>
+        <ul id="proofsList"></ul>
+
+        <div id="proofAnchorAdmin" hidden>
+          <label>Anchor day</label>
+          <input id="proofAnchorDay" type="date" />
+          <label>Chain</label>
+          <select id="proofAnchorChain">
+            <option value="polygon">Polygon</option>
+          </select>
+          <label>Tx reference (optional)</label>
+          <input id="proofAnchorTxRef" type="text" placeholder="0x... or manual ref" />
+          <button id="anchorProofBtn" class="secondary">Anchor selected day</button>
+          <p id="proofAnchorStatus" class="hint">Admin anchor status.</p>
+        </div>
+      </section>
+
+      <section id="moderationCard" class="card" hidden>
+        <h2>Moderation (Admin)</h2>
+        <label>Target user ID</label>
+        <input id="moderationUserId" type="text" placeholder="u-..." />
+        <label>Mute minutes</label>
+        <input id="moderationMinutes" type="number" min="1" max="10080" value="30" />
+        <label>Reason (optional)</label>
+        <input id="moderationReason" type="text" placeholder="Spam / abuse" />
+        <div class="row">
+          <button id="muteUserBtn" class="danger">Mute user</button>
+          <button id="unmuteUserBtn" class="secondary">Unmute user</button>
+        </div>
+        <label>Bulk report status</label>
+        <select id="bulkReportStatus">
+          <option value="open">Open</option>
+          <option value="resolved">Resolved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <label>Bulk admin note (optional)</label>
+        <input id="bulkReportNote" type="text" placeholder="Applied in bulk" />
+        <div class="row">
+          <button id="applyBulkReportsBtn" class="secondary">Apply bulk status</button>
+          <button id="clearBulkSelectionBtn" class="secondary">Clear selection</button>
+        </div>
+        <label>Report filters</label>
+        <select id="reportFilterStatus">
+          <option value="">All statuses</option>
+          <option value="open">Open</option>
+          <option value="resolved">Resolved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <input id="reportFilterReporter" type="text" placeholder="Reporter user ID" />
+        <input id="reportFilterVideo" type="text" placeholder="Video ID" />
+        <div class="row">
+          <input id="reportFilterFrom" type="date" />
+          <input id="reportFilterTo" type="date" />
+        </div>
+        <div class="row">
+          <button id="applyReportFiltersBtn" class="secondary">Apply filters</button>
+          <button id="clearReportFiltersBtn" class="secondary">Clear filters</button>
+        </div>
+        <label>Export reports</label>
+        <div class="row">
+          <select id="exportReportsFormat">
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+          </select>
+          <button id="downloadReportsBtn" class="secondary">Download export</button>
+        </div>
+        <div class="row">
+          <button id="prevReportsPageBtn" class="secondary">Prev page</button>
+          <button id="nextReportsPageBtn" class="secondary">Next page</button>
+        </div>
+        <p id="reportsPageText" class="hint">Page 1</p>
+        <button id="refreshReportsBtn" class="secondary">Refresh reports</button>
+        <ul id="reportsList"></ul>
+
+        <h3 style="margin-top:12px;">Pilot Metrics</h3>
+        <button id="refreshMetricsBtn" class="secondary">Refresh metrics</button>
+        <p id="metricsSummaryText" class="hint">Metrics not loaded.</p>
+        <ul id="metricsList"></ul>
+
+        <h3 style="margin-top:12px;">Closed Beta Cohort</h3>
+        <label>Filter status</label>
+        <select id="pilotFilterStatus">
+          <option value="">All</option>
+          <option value="requested">Requested</option>
+          <option value="approved">Approved</option>
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
+          <option value="removed">Removed</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button id="refreshPilotBtn" class="secondary">Refresh pilot cohort</button>
+        <p id="pilotSummaryText" class="hint">Pilot summary not loaded.</p>
+        <ul id="pilotList"></ul>
+
+        <h3 style="margin-top:12px;">Feedback Queue</h3>
+        <div class="row">
+          <select id="feedbackFilterStatus">
+            <option value="">All statuses</option>
+            <option value="open">Open</option>
+            <option value="planned">Planned</option>
+            <option value="in_progress">In progress</option>
+            <option value="done">Done</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <input id="feedbackFilterCategory" type="text" placeholder="category (optional)" />
+        </div>
+        <button id="refreshFeedbackBtn" class="secondary">Refresh feedback queue</button>
+        <ul id="feedbackList"></ul>
+
+        <h3 style="margin-top:12px;">7-Day Iterations</h3>
+        <label>Title</label>
+        <input id="iterationTitle" type="text" placeholder="Week 01 improvements" />
+        <label>Goal</label>
+        <input id="iterationGoal" type="text" placeholder="Main objective for this week" />
+        <div class="row">
+          <input id="iterationStart" type="date" />
+          <input id="iterationEnd" type="date" />
+        </div>
+        <label>Feedback IDs (optional, comma separated)</label>
+        <input id="iterationFeedbackIds" type="text" placeholder="id1,id2,id3" />
+        <button id="createIterationBtn" class="secondary">Create iteration</button>
+        <button id="refreshIterationsBtn" class="secondary">Refresh iterations</button>
+        <p id="iterationStatusText" class="hint">Iterations not loaded.</p>
+        <ul id="iterationsList"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Local Offline Videos</h2>
+        <p class="hint">Kad internet proradi, aplikacija pita da li želiš upload ili da ostane lokalno.</p>
+        <div class="row">
+          <button id="refreshLocalBtn" class="secondary">Refresh local</button>
+          <button id="uploadAllLocalBtn" class="secondary">Upload all pending</button>
+        </div>
+        <button id="keepAllLocalBtn" class="secondary">Keep all local</button>
+        <p id="localSummaryText" class="hint">Local summary loading...</p>
+        <ul id="localVideosList"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Community Node (Desktop Server)</h2>
+        <p class="hint">Optional: users can share resources like old DC hub / torrent style (registry-first).</p>
+        <label>Node name</label>
+        <input id="nodeName" type="text" placeholder="my-desktop-node" />
+        <label>Public URL (optional)</label>
+        <input id="nodeUrl" type="text" placeholder="https://myhome.example.com" />
+        <div class="row">
+          <button id="registerNodeBtn" class="secondary">Register node</button>
+          <button id="listNodesBtn" class="secondary">List nodes</button>
+        </div>
+        <p id="nodeText" class="hint">Node not registered.</p>
+        <ul id="nodesList"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
