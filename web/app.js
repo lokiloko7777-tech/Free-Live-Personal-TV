@@ -179,6 +179,7 @@ let lastProofRoots = [];
 let currentCaptureProfile = 'auto-legacy';
 let apiBaseUrl = '';
 let apiDiscoveryPromise = null;
+let runtimePreferredApiBaseUrlsCache = null;
 const selectedReportIds = new Set();
 const FEEDBACK_STATUS_OPTIONS = ['open', 'planned', 'in_progress', 'done', 'rejected'];
 const ITERATION_STATUS_OPTIONS = ['planned', 'active', 'completed'];
@@ -234,6 +235,30 @@ function setApiBaseUrl(url, persist = true) {
 
 function getStoredApiBaseUrl() {
   return normalizeApiBaseUrl(localStorage.getItem(KEY_API_BASE_URL) || '');
+}
+
+function getRuntimePreferredApiBaseUrls() {
+  if (runtimePreferredApiBaseUrlsCache) {
+    return runtimePreferredApiBaseUrlsCache;
+  }
+
+  const runtimeConfig = typeof window === 'object' ? window.__FLPT_RUNTIME_CONFIG__ : null;
+  const values = Array.isArray(runtimeConfig?.preferredApiBaseUrls)
+    ? runtimeConfig.preferredApiBaseUrls
+    : [];
+
+  const seen = new Set();
+  runtimePreferredApiBaseUrlsCache = values
+    .map((value) => normalizeApiBaseUrl(value))
+    .filter((value) => {
+      if (!value || seen.has(value)) {
+        return false;
+      }
+      seen.add(value);
+      return true;
+    });
+
+  return runtimePreferredApiBaseUrlsCache;
 }
 
 function getApiBaseUrl() {
@@ -336,6 +361,10 @@ function buildDiscoveryCandidates(localIpv4) {
   const locationBackend = getBackendFromLocation();
   if (locationBackend) {
     pushCandidate(locationBackend);
+  }
+
+  for (const runtimeBackend of getRuntimePreferredApiBaseUrls()) {
+    pushCandidate(runtimeBackend);
   }
 
   for (const prefix of prefixes) {

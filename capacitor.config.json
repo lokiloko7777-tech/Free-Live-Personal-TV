@@ -1,0 +1,11 @@
+{
+  "appId": "com.flpt.app",
+  "appName": "Free Live Personal TV",
+  "webDir": "web",
+  "server": {
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

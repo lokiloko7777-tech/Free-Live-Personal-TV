@@ -275,11 +275,33 @@ Ovaj repo sada ima Capacitor Android packaging.
 	- `android/app/build/outputs/apk/debug/app-debug.apk`
 
 Napomene:
-- APK sada automatski otkriva backend na LAN-u (DHCP IP) i ne zahteva fiksnu IP adresu.
+- APK sada automatski koristi prioritet: `FLPT_LOCAL_URL`/`FLPT_LOCAL_IP` → `FLPT_PUBLIC_URL`/`FLPT_PUBLIC_IP` → LAN auto-discovery.
+- Time ista APK radi i kad si na kućnom LAN-u (bez interneta) i kad si van mreže preko javne adrese.
 - Ako želiš hard override, otvori app kao: `...?backend=http://192.168.1.50:8080`.
 - Alternativno možeš bake-ovati fiksni URL u APK tokom build-a: `FLPT_APP_URL=https://tv.example.com npm run android:apk:debug`.
 - Za javnu IP bez punog URL-a koristi: `FLPT_PUBLIC_IP=203.0.113.10 npm run android:apk:debug`.
 - Opcioni override za javnu IP build: `FLPT_PUBLIC_IP=203.0.113.10 FLPT_APP_PORT=8080 FLPT_APP_SCHEME=http npm run android:apk:debug`.
+- Lokalni override za Wi-Fi/LAN build: `FLPT_LOCAL_IP=192.168.1.50 npm run android:apk:debug`.
+- Više lokalnih kandidata: `FLPT_LOCAL_IPS=192.168.1.50,192.168.0.50 npm run android:apk:debug`.
+
+## macOS app (native shell preko Capacitor)
+
+Na Mac-u možeš napraviti nativni app shell (Xcode + Mac Catalyst) iz istog koda:
+
+1. Instaliraj zavisnosti:
+	- `npm install`
+2. Inicijalizuj iOS projekat (jednom):
+	- `npm run mac:init`
+3. Sync web + config:
+	- `npm run mac:sync`
+4. Otvori u Xcode:
+	- `npm run mac:open`
+5. U Xcode izaberi **My Mac (Designed for iPad)** i Build/Run.
+
+Isti runtime fallback važi i za macOS app:
+- `FLPT_LOCAL_URL` ili `FLPT_LOCAL_IP` za LAN/offline scenario,
+- `FLPT_PUBLIC_URL` ili `FLPT_PUBLIC_IP` za internet scenario,
+- app automatski pokušava oba pre LAN skeniranja.
 
 ### Release APK / AAB (potpisano)
 

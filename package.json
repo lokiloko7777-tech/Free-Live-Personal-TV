@@ -17,7 +17,10 @@
     "android:open": "npm run android:sync && npx cap open android",
     "android:apk:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "android:apk:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
-    "android:aab:release": "npm run android:sync && cd android && ./gradlew bundleRelease"
+    "android:aab:release": "npm run android:sync && cd android && ./gradlew bundleRelease",
+    "mac:init": "npm run cap:config && npx cap add ios",
+    "mac:sync": "npm run cap:config && npx cap sync ios",
+    "mac:open": "npm run mac:sync && npx cap open ios"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -32,6 +35,7 @@
   "devDependencies": {
     "@capacitor/android": "^8.1.0",
     "@capacitor/cli": "^8.1.0",
-    "@capacitor/core": "^8.1.0"
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0"
   }
 }

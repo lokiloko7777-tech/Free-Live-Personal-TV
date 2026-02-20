@@ -4,6 +4,10 @@ import path from 'node:path';
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const appUrl = (process.env.FLPT_APP_URL || '').trim();
 const publicIp = (process.env.FLPT_PUBLIC_IP || '').trim();
+const publicUrl = (process.env.FLPT_PUBLIC_URL || '').trim();
+const localIp = (process.env.FLPT_LOCAL_IP || '').trim();
+const localIpsRaw = (process.env.FLPT_LOCAL_IPS || '').trim();
+const localUrl = (process.env.FLPT_LOCAL_URL || '').trim();
 const appPortRaw = (process.env.FLPT_APP_PORT || '').trim();
 const appSchemeRaw = (process.env.FLPT_APP_SCHEME || '').trim().toLowerCase();
 
@@ -26,6 +30,29 @@ function parsePort(value) {
   return port;
 }
 
+function normalizeBaseUrl(value) {
+  if (!value) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+    return parsed.origin;
+  } catch {
+    return '';
+  }
+}
+
+function makeUrlFromIp(ip, scheme, port) {
+  if (!isValidIpv4(ip)) {
+    return '';
+  }
+  return `${scheme}://${ip}:${port}`;
+}
+
 const appScheme = appSchemeRaw === 'https' ? 'https' : 'http';
 const appPort = parsePort(appPortRaw);
 
@@ -36,6 +63,11 @@ if (appPort === null) {
 
 const derivedAppUrl = publicIp ? `${appScheme}://${publicIp}:${appPort}` : '';
 const selectedAppUrl = appUrl || derivedAppUrl;
+const derivedPublicUrl = publicIp ? makeUrlFromIp(publicIp, appScheme, appPort) : '';
+const localIps = localIpsRaw
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean);
 
 let parsed = null;
 if (selectedAppUrl) {
@@ -77,6 +109,50 @@ if (publicIp && !isValidIpv4(publicIp)) {
   process.exit(1);
 }
 
+if (localIp && !isValidIpv4(localIp)) {
+  console.error('Invalid FLPT_LOCAL_IP. Use IPv4 format like 192.168.1.50');
+  process.exit(1);
+}
+
+if (localIps.some((entry) => !isValidIpv4(entry))) {
+  console.error('Invalid FLPT_LOCAL_IPS. Use comma-separated IPv4 values like 192.168.1.10,192.168.1.11');
+  process.exit(1);
+}
+
+if (publicUrl && !normalizeBaseUrl(publicUrl)) {
+  console.error('Invalid FLPT_PUBLIC_URL. Use full URL like https://tv.example.com');
+  process.exit(1);
+}
+
+if (localUrl && !normalizeBaseUrl(localUrl)) {
+  console.error('Invalid FLPT_LOCAL_URL. Use full URL like http://192.168.1.50:8080');
+  process.exit(1);
+}
+
+const runtimeCandidates = [];
+const seenRuntimeCandidates = new Set();
+const pushRuntimeCandidate = (value) => {
+  const normalized = normalizeBaseUrl(value);
+  if (!normalized || seenRuntimeCandidates.has(normalized)) {
+    return;
+  }
+  seenRuntimeCandidates.add(normalized);
+  runtimeCandidates.push(normalized);
+};
+
+pushRuntimeCandidate(localUrl);
+pushRuntimeCandidate(makeUrlFromIp(localIp, appScheme, appPort));
+for (const ip of localIps) {
+  pushRuntimeCandidate(makeUrlFromIp(ip, appScheme, appPort));
+}
+pushRuntimeCandidate(publicUrl);
+pushRuntimeCandidate(appUrl);
+pushRuntimeCandidate(derivedPublicUrl);
+
+const runtimeConfigPath = path.join(rootDir, 'web', 'runtime-config.js');
+const runtimeConfig = `window.__FLPT_RUNTIME_CONFIG__ = Object.freeze(${JSON.stringify({ preferredApiBaseUrls: runtimeCandidates }, null, 2)});\n`;
+fs.writeFileSync(runtimeConfigPath, runtimeConfig, 'utf8');
+
 const configPath = path.join(rootDir, 'capacitor.config.json');
 fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 if (parsed) {
@@ -88,3 +164,4 @@ if (parsed) {
 } else {
   console.log(`Wrote ${configPath} in bundled-app mode (dynamic backend discovery)`);
 }
+console.log(`Wrote ${runtimeConfigPath} with ${runtimeCandidates.length} preferred endpoint(s)`);
