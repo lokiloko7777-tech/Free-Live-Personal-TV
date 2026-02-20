@@ -68,6 +68,7 @@ jobs:
   macos-app:
     name: macOS .app + .dmg
     runs-on: macos-latest
+    continue-on-error: true
     timeout-minutes: 45
 
     steps:
@@ -92,7 +93,7 @@ jobs:
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'platform=macOS,name=My Mac,variant=Designed for [iPad,iPhone]' \
+            -destination 'platform=macOS,name=My Mac' \
             -derivedDataPath ios/build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -193,7 +194,7 @@ jobs:
 
   release:
     name: Publish GitHub Release Assets
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && always()
     needs: [android-apk, macos-app, windows11-portable]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -207,6 +208,7 @@ jobs:
 
       - name: Download macOS artifact
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: macos-app-dmg
           path: release-assets
@@ -221,12 +223,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: |
-            release-assets/free-live-personal-tv-redmi-pro-debug.apk
-            release-assets/free-live-personal-tv-redmi-pro-debug.apk.sha256
-            release-assets/free-live-personal-tv-macos.app.zip
-            release-assets/free-live-personal-tv-macos.app.zip.sha256
-            release-assets/free-live-personal-tv-macos.dmg
-            release-assets/free-live-personal-tv-macos.dmg.sha256
-            release-assets/free-live-personal-tv-windows11-portable.zip
-            release-assets/free-live-personal-tv-windows11-portable.zip.sha256
+          files: release-assets/**
