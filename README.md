@@ -292,11 +292,18 @@ Napomene:
 - Output artifacts:
 	- `android-redmi-pro-apk` (APK + SHA256)
 	- `macos-app-dmg` (.app.zip + .dmg + SHA256)
+	- `windows11-portable` (.zip + SHA256)
 - Download link dobijaš direktno na stranici konkretnog workflow run-a, u sekciji **Artifacts**.
 - Za javni release link (bez ulaska u Actions):
 	1. `git tag v1.0.0`
 	2. `git push origin v1.0.0`
 	3. preuzmi fajlove sa `https://github.com/lokiloko7777-tech/Free-Live-Personal-TV/releases/tag/v1.0.0`
+
+## Windows 11 portable app
+
+- Download fajl: `free-live-personal-tv-windows11-portable.zip` (iz GitHub Release assets)
+- Raspakuj ZIP i pokreni `start-flpt-windows11.bat`
+- App radi bez posebne Node.js instalacije (portable paket već sadrži `node.exe`)
 
 ## macOS app (native shell preko Capacitor)
 

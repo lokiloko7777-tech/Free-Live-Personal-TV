@@ -124,10 +124,75 @@ jobs:
             artifacts/free-live-personal-tv-macos.dmg.sha256
           if-no-files-found: error
 
+  windows11-portable:
+    name: Windows 11 portable package
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build portable Windows package
+        shell: pwsh
+        run: |
+          $outRoot = "artifacts/windows11/Free-Live-Personal-TV-Windows11"
+          New-Item -ItemType Directory -Force -Path $outRoot | Out-Null
+
+          Copy-Item -Recurse -Force server $outRoot
+          Copy-Item -Recurse -Force web $outRoot
+          Copy-Item -Recurse -Force scripts $outRoot
+          Copy-Item -Recurse -Force data $outRoot
+          Copy-Item -Recurse -Force node_modules $outRoot
+          Copy-Item -Force package.json $outRoot
+          Copy-Item -Force package-lock.json $outRoot
+
+          New-Item -ItemType Directory -Force -Path "$outRoot/runtime" | Out-Null
+          $nodePath = (Get-Command node).Source
+          Copy-Item -Force $nodePath "$outRoot/runtime/node.exe"
+
+          @(
+            '@echo off',
+            'setlocal',
+            'cd /d %~dp0',
+            'if not exist uploads mkdir uploads',
+            'if not exist data mkdir data',
+            'runtime\\node.exe server\\index.js'
+          ) | Set-Content -Encoding ASCII "$outRoot/start-flpt-windows11.bat"
+
+          @(
+            'Free Live Personal TV - Windows 11 portable',
+            '',
+            '1) Double click start-flpt-windows11.bat',
+            '2) Open http://localhost:8080',
+            '3) For LAN testing use http://<your-local-ip>:8080'
+          ) | Set-Content -Encoding UTF8 "$outRoot/README-WINDOWS11.txt"
+
+          Compress-Archive -Path "$outRoot/*" -DestinationPath "artifacts/free-live-personal-tv-windows11-portable.zip" -Force
+          (Get-FileHash "artifacts/free-live-personal-tv-windows11-portable.zip" -Algorithm SHA256).Hash.ToLower() + "  free-live-personal-tv-windows11-portable.zip" | Set-Content -Encoding ASCII "artifacts/free-live-personal-tv-windows11-portable.zip.sha256"
+
+      - name: Upload Windows 11 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows11-portable
+          path: |
+            artifacts/free-live-personal-tv-windows11-portable.zip
+            artifacts/free-live-personal-tv-windows11-portable.zip.sha256
+          if-no-files-found: error
+
   release:
     name: Publish GitHub Release Assets
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [android-apk, macos-app]
+    needs: [android-apk, macos-app, windows11-portable]
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -144,6 +209,12 @@ jobs:
           name: macos-app-dmg
           path: release-assets
 
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows11-portable
+          path: release-assets
+
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
@@ -155,3 +226,5 @@ jobs:
             release-assets/free-live-personal-tv-macos.app.zip.sha256
             release-assets/free-live-personal-tv-macos.dmg
             release-assets/free-live-personal-tv-macos.dmg.sha256
+            release-assets/free-live-personal-tv-windows11-portable.zip
+            release-assets/free-live-personal-tv-windows11-portable.zip.sha256
