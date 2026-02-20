@@ -2,10 +2,12 @@
 
 - File: free-live-personal-tv-debug.apk
   - Build: debug (Capacitor Android)
-  - SHA256: 5988a2aa195eb153b270a94945cfd4f786b6ecbcdd06fd5933283790f3506663
+  - Backend URL baked in: http://192.168.1.50:8080
+  - SHA256: 919cd168671d273e248b931f57fa7791cf28329bda5db703b13a9c1b8fbe340e
 
 - File: free-live-personal-tv-release-signed.apk
   - Build: release (signed)
-  - SHA256: 42aa719de16335fc8d39e2e307089640c27dee40a2c899e2b63df3135e7cdefc
+  - Backend URL baked in: http://192.168.1.50:8080
+  - SHA256: ec02a709a4d864878070765fb0c36e7cd3feaf951b8892a08cf37c24f5957033
 
-Napomena: APK koristi backend URL koji je ugrađen tokom build-a.
+Napomena: telefon i server moraju biti na istoj Wi‑Fi mreži, a server mora slušati na 0.0.0.0:8080.
