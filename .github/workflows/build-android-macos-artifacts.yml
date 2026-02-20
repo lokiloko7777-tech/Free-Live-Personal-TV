@@ -92,7 +92,7 @@ jobs:
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -destination 'platform=macOS,name=My Mac,variant=Designed for [iPad,iPhone]' \
             -derivedDataPath ios/build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -151,7 +151,9 @@ jobs:
           Copy-Item -Recurse -Force server $outRoot
           Copy-Item -Recurse -Force web $outRoot
           Copy-Item -Recurse -Force scripts $outRoot
-          Copy-Item -Recurse -Force data $outRoot
+          if (Test-Path data) {
+            Copy-Item -Recurse -Force data $outRoot
+          }
           Copy-Item -Recurse -Force node_modules $outRoot
           Copy-Item -Force package.json $outRoot
           Copy-Item -Force package-lock.json $outRoot
