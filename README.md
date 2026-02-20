@@ -288,10 +288,15 @@ Napomene:
 
 - Workflow: `.github/workflows/build-android-macos-artifacts.yml`
 - Pokretanje: GitHub → **Actions** → **Build Android + macOS Artifacts** → **Run workflow**
+- Auto release: na `git push` taga formata `v*` (npr. `v1.0.0`) workflow automatski kreira GitHub Release i upload-uje download fajlove.
 - Output artifacts:
 	- `android-redmi-pro-apk` (APK + SHA256)
-	- `macos-app-dmg` (.app + .dmg + SHA256)
+	- `macos-app-dmg` (.app.zip + .dmg + SHA256)
 - Download link dobijaš direktno na stranici konkretnog workflow run-a, u sekciji **Artifacts**.
+- Za javni release link (bez ulaska u Actions):
+	1. `git tag v1.0.0`
+	2. `git push origin v1.0.0`
+	3. preuzmi fajlove sa `https://github.com/lokiloko7777-tech/Free-Live-Personal-TV/releases/tag/v1.0.0`
 
 ## macOS app (native shell preko Capacitor)
 
