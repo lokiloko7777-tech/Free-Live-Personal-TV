@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Free Live Personal TV</string>
+    <string name="title_activity_main">Free Live Personal TV</string>
+    <string name="package_name">com.flpt.app</string>
+    <string name="custom_url_scheme">com.flpt.app</string>
+</resources>

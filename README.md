@@ -228,6 +228,15 @@ Jedini potencijalni eksterni troškovi su domen i eventualni blockchain transact
 
 ## Day-1 pokretanje (MacBook + Redmi)
 
+Lokalni development **ne zahteva Proxmox**. Dovoljni su Node.js + npm.
+
+Najjednostavnije pokretanje na MacBook-u (i5/8GB):
+1. `npm install`
+2. `npm run dev:mac`
+
+`dev:mac` režim radi bez FFmpeg server processing-a (device processing only), što je lakše za slabiji laptop.
+Ako imaš FFmpeg na Mac-u (`brew install ffmpeg`), koristi `npm run dev:mac:ffmpeg` za server processing.
+
 1. `npm install`
 2. `npm run dev`
 3. Na Mac-u otvori: `http://localhost:8080`
@@ -248,6 +257,54 @@ Session security (novo):
 - login vraća bearer session token sa istekom (default 7 dana)
 - TTL možeš menjati preko `AUTH_SESSION_TTL_MS`
 - primer: `AUTH_SESSION_TTL_MS=259200000 GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com npm run dev`
+
+## Android APK (Redmi i drugi telefoni)
+
+Ovaj repo sada ima Capacitor Android packaging.
+
+1. Pokreni backend/server (na mašini dostupnoj telefonu):
+	- `npm install`
+	- `npm run dev`
+2. Postavi URL servera koji telefon može da otvori (LAN IP ili domen):
+	- primer LAN: `FLPT_APP_URL=http://192.168.1.50:8080`
+	- primer domen: `FLPT_APP_URL=https://tv.example.com`
+3. Postavi Android SDK putanju (obavezno za build):
+	- `export ANDROID_SDK_ROOT=/path/to/Android/Sdk`
+4. Prvo generisanje Android projekta:
+	- `FLPT_APP_URL=http://192.168.1.50:8080 npm run android:init`
+5. Build debug APK:
+	- `FLPT_APP_URL=http://192.168.1.50:8080 npm run android:apk:debug`
+6. APK putanja:
+	- `android/app/build/outputs/apk/debug/app-debug.apk`
+
+Napomene:
+- Za `http://` URL Android će dozvoliti cleartext samo za taj način rada (LAN/dev).
+- Za produkciju koristi `https://` domen.
+- Ako menjaš server URL, ponovo pokreni `android:sync` ili direktno `android:apk:debug`.
+
+### Release APK / AAB (potpisano)
+
+1. Napravi keystore (jednom):
+	- `keytool -genkeypair -v -keystore flpt-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias flpt`
+2. Export signing varijable:
+	- `export FLPT_KEYSTORE_PATH=/absolute/path/to/flpt-release.jks`
+	- `export FLPT_KEYSTORE_PASSWORD=your_keystore_password`
+	- `export FLPT_KEY_ALIAS=flpt`
+	- `export FLPT_KEY_PASSWORD=your_key_password`
+3. Android SDK putanja:
+	- `export ANDROID_SDK_ROOT=/path/to/Android/Sdk`
+4. Build release APK:
+	- `FLPT_APP_URL=https://your-domain.com npm run android:apk:release`
+5. Build release AAB (Play Store):
+	- `FLPT_APP_URL=https://your-domain.com npm run android:aab:release`
+
+Output putanje:
+- APK: `android/app/build/outputs/apk/release/app-release.apk`
+- AAB: `android/app/build/outputs/bundle/release/app-release.aab`
+
+Ako signing env varijable nisu postavljene, release artifact će biti unsigned.
+
+`android:sync` sada automatski pokušava da generiše `android/local.properties` iz `ANDROID_SDK_ROOT` ili `ANDROID_HOME`.
 
 Moderation setup (admin):
 - postavi admin naloge preko env var `ADMIN_USER_IDS` (comma-separated user IDs)

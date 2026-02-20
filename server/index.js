@@ -9,8 +9,13 @@ import QRCode from 'qrcode';
 import swaggerUi from 'swagger-ui-express';
 import { fileURLToPath } from 'node:url';
 import { createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { OAuth2Client } from 'google-auth-library';
+
+function checkFfmpegAvailable(bin) {
+  const probe = spawnSync(bin, ['-version'], { stdio: 'ignore' });
+  return !probe.error && probe.status === 0;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,7 +33,10 @@ const CHAT_MIN_INTERVAL_MS = 2500;
 const CHAT_DUPLICATE_WINDOW_MS = 30000;
 const ALLOWED_AVATARS = new Set(['male', 'female', 'anonymous']);
 const AUTH_SESSION_TTL_MS = Number(process.env.AUTH_SESSION_TTL_MS || 7 * 24 * 60 * 60 * 1000);
-const FFMPEG_ENABLED = String(process.env.FFMPEG_ENABLED || '1') !== '0';
+const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg';
+const FFMPEG_REQUESTED = String(process.env.FFMPEG_ENABLED || '1') !== '0';
+const FFMPEG_AVAILABLE = FFMPEG_REQUESTED ? checkFfmpegAvailable(FFMPEG_BIN) : false;
+const FFMPEG_ENABLED = FFMPEG_AVAILABLE;
 const FFMPEG_PRESET = process.env.FFMPEG_PRESET || 'veryfast';
 const FFMPEG_CRF = Number(process.env.FFMPEG_CRF || 29);
 const HLS_VARIANTS = [
@@ -667,7 +675,7 @@ async function transcodeToMp4(inputPath, outputPath) {
       outputPath
     ];
 
-    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    const proc = spawn(FFMPEG_BIN, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
     proc.stderr.on('data', (chunk) => {
       stderr += String(chunk || '');
@@ -737,7 +745,7 @@ async function transcodeToHlsVariant(inputPath, outputDir, variant) {
       playlistPath
     ];
 
-    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    const proc = spawn(FFMPEG_BIN, args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
     proc.stderr.on('data', (chunk) => {
       stderr += String(chunk || '');
@@ -2632,12 +2640,19 @@ app.post('/api/sessions/:sessionId/complete', async (req, res) => {
 
   session.status = 'completed';
   session.completedAt = new Date().toISOString();
-  session.processingMode = processingMode === 'server' ? 'server' : 'device';
+  const wantsServerProcessing = processingMode === 'server';
+  session.processingMode = wantsServerProcessing && FFMPEG_ENABLED ? 'server' : 'device';
+  session.processingError = '';
   session.chunkCryptoKey = '';
   session.chunkEncryption = '';
   session.hlsMasterUrl = '';
   session.hlsVariants = [];
   session.hlsError = '';
+
+  if (wantsServerProcessing && !FFMPEG_ENABLED) {
+    session.processingError = 'server_processing_unavailable_ffmpeg_missing';
+    session.errors.push('server_processing_fallback_device');
+  }
 
   const inputPath = path.join(uploadsDir, session.filename);
   if (session.processingMode === 'server') {
@@ -3379,6 +3394,10 @@ app.listen(port, host, () => {
   const lanUrls = getLanUrls(port);
   console.log(`MVP server running on http://localhost:${port}`);
   console.log(`Listening host: ${host}`);
+  if (FFMPEG_REQUESTED && !FFMPEG_AVAILABLE) {
+    console.log('FFmpeg not found. Running in local-lite mode (device processing only).');
+    console.log('Install FFmpeg to enable server processing: brew install ffmpeg');
+  }
 
   if (lanUrls.length) {
     console.log('LAN test URLs:');

@@ -14,11 +14,15 @@ Pokrenuti funkcionalan MVP za jedan dan:
 - npm
 - MacBook i Redmi na istoj mreži (za lokalni test)
 
+Napomena:
+- Proxmox nije potreban za lokalni Day-1 development.
+
 ## Pokretanje lokalno
 1. Instaliraj zavisnosti:
    - `npm install`
 2. Pokreni aplikaciju:
    - `npm run dev`
+   - ili lagani režim za stariji laptop: `npm run dev:mac`
 3. Otvori na Mac-u:
    - `http://localhost:8080`
 4. Otvori na telefonu (isti Wi-Fi):

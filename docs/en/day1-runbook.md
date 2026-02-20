@@ -14,11 +14,15 @@ Run a functional MVP in one day:
 - npm
 - MacBook and Redmi on same network (for local test)
 
+Note:
+- Proxmox is not required for local Day-1 development.
+
 ## Start locally
 1. Install deps:
    - `npm install`
 2. Run app:
    - `npm run dev`
+   - or lightweight mode for older laptops: `npm run dev:mac`
 3. Open on Mac:
    - `http://localhost:8080`
 4. Open on phone (same Wi-Fi):
