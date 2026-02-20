@@ -1,0 +1,121 @@
+name: Build Android + macOS Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - web/**
+      - server/**
+      - scripts/**
+      - ios/**
+      - android/**
+      - package.json
+      - package-lock.json
+      - capacitor.config.json
+      - .github/workflows/build-android-macos-artifacts.yml
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Android APK (Redmi Pro compatible)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build debug APK
+        run: npm run android:apk:debug
+
+      - name: Prepare Android artifacts
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/free-live-personal-tv-redmi-pro-debug.apk
+          sha256sum artifacts/free-live-personal-tv-redmi-pro-debug.apk > artifacts/free-live-personal-tv-redmi-pro-debug.apk.sha256
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-redmi-pro-apk
+          path: |
+            artifacts/free-live-personal-tv-redmi-pro-debug.apk
+            artifacts/free-live-personal-tv-redmi-pro-debug.apk.sha256
+          if-no-files-found: error
+
+  macos-app:
+    name: macOS .app + .dmg
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync Capacitor iOS project
+        run: npm run mac:sync
+
+      - name: Build Mac Catalyst app
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Create macOS DMG
+        run: |
+          mkdir -p artifacts
+          APP_PATH="ios/build/Build/Products/Release-maccatalyst/App.app"
+          cp -R "$APP_PATH" artifacts/Free-Live-Personal-TV.app
+          hdiutil create \
+            -volname "Free-Live-Personal-TV" \
+            -srcfolder artifacts/Free-Live-Personal-TV.app \
+            -ov \
+            -format UDZO \
+            artifacts/free-live-personal-tv-macos.dmg
+          shasum -a 256 artifacts/free-live-personal-tv-macos.dmg > artifacts/free-live-personal-tv-macos.dmg.sha256
+
+      - name: Upload macOS app and DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-dmg
+          path: |
+            artifacts/Free-Live-Personal-TV.app
+            artifacts/free-live-personal-tv-macos.dmg
+            artifacts/free-live-personal-tv-macos.dmg.sha256
+          if-no-files-found: error

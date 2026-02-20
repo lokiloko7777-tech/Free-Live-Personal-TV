@@ -284,6 +284,15 @@ Napomene:
 - Lokalni override za Wi-Fi/LAN build: `FLPT_LOCAL_IP=192.168.1.50 npm run android:apk:debug`.
 - Više lokalnih kandidata: `FLPT_LOCAL_IPS=192.168.1.50,192.168.0.50 npm run android:apk:debug`.
 
+### GitHub Actions auto-build (Android + macOS)
+
+- Workflow: `.github/workflows/build-android-macos-artifacts.yml`
+- Pokretanje: GitHub → **Actions** → **Build Android + macOS Artifacts** → **Run workflow**
+- Output artifacts:
+	- `android-redmi-pro-apk` (APK + SHA256)
+	- `macos-app-dmg` (.app + .dmg + SHA256)
+- Download link dobijaš direktno na stranici konkretnog workflow run-a, u sekciji **Artifacts**.
+
 ## macOS app (native shell preko Capacitor)
 
 Na Mac-u možeš napraviti nativni app shell (Xcode + Mac Catalyst) iz istog koda:
