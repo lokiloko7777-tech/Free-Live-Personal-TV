@@ -278,6 +278,8 @@ Napomene:
 - APK sada automatski otkriva backend na LAN-u (DHCP IP) i ne zahteva fiksnu IP adresu.
 - Ako želiš hard override, otvori app kao: `...?backend=http://192.168.1.50:8080`.
 - Alternativno možeš bake-ovati fiksni URL u APK tokom build-a: `FLPT_APP_URL=https://tv.example.com npm run android:apk:debug`.
+- Za javnu IP bez punog URL-a koristi: `FLPT_PUBLIC_IP=203.0.113.10 npm run android:apk:debug`.
+- Opcioni override za javnu IP build: `FLPT_PUBLIC_IP=203.0.113.10 FLPT_APP_PORT=8080 FLPT_APP_SCHEME=http npm run android:apk:debug`.
 
 ### Release APK / AAB (potpisano)
 
@@ -292,6 +294,7 @@ Napomene:
 	- `export ANDROID_SDK_ROOT=/path/to/Android/Sdk`
 4. Build release APK:
 	- `npm run android:apk:release`
+ 	- ili sa javnom IP: `FLPT_PUBLIC_IP=203.0.113.10 npm run android:apk:release`
 5. Build release AAB (Play Store):
 	- `npm run android:aab:release`
 
