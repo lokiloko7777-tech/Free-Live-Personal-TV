@@ -1,5 +1,11 @@
 # APK Artifacts
 
+- File: 1-free-live-personal-tv-production-public-ip-unsigned.apk
+  - Build: release (unsigned)
+  - Latest artifact marker: filename starts with `1`
+  - Backend mode: fixed public backend URL baked into APK
+  - SHA256: 53f9325d7396f2509b616f16951f76c9fe678132f559c69bc29eb729bd3f1d65
+
 - File: free-live-personal-tv-debug.apk
   - Build: debug (Capacitor Android)
   - Backend mode: dynamic LAN auto-discovery (DHCP friendly)
