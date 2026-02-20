@@ -131,10 +131,14 @@ const KEY_ANON = 'flpt_anonymous';
 const KEY_NODE_ID = 'flpt_node_id';
 const KEY_AUTO_UPLOAD = 'flpt_auto_upload';
 const KEY_QUALITY_PRESET = 'flpt_quality_preset';
+const KEY_API_BASE_URL = 'flpt_api_base_url';
 const DB_NAME = 'flpt_offline_db';
 const DB_STORE = 'localVideos';
 const MAX_DURATION_MS = 3 * 60 * 1000;
 const MAX_SIZE_BYTES = 30 * 1024 * 1024;
+const API_DISCOVERY_PORT = 8080;
+const API_DISCOVERY_TIMEOUT_MS = 900;
+const API_DISCOVERY_BATCH_SIZE = 18;
 const RECORDER_MIME_CANDIDATES = [
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
@@ -173,9 +177,292 @@ let currentChunkCryptoKeyRef = '';
 let currentChunkCryptoKey = null;
 let lastProofRoots = [];
 let currentCaptureProfile = 'auto-legacy';
+let apiBaseUrl = '';
+let apiDiscoveryPromise = null;
 const selectedReportIds = new Set();
 const FEEDBACK_STATUS_OPTIONS = ['open', 'planned', 'in_progress', 'done', 'rejected'];
 const ITERATION_STATUS_OPTIONS = ['planned', 'active', 'completed'];
+
+function normalizeApiBaseUrl(value) {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+    return parsed.origin;
+  } catch {
+    return '';
+  }
+}
+
+function getBackendFromQuery() {
+  try {
+    const backend = new URLSearchParams(window.location.search).get('backend');
+    return normalizeApiBaseUrl(backend || '');
+  } catch {
+    return '';
+  }
+}
+
+function getBackendFromLocation() {
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return normalizeApiBaseUrl(window.location.origin);
+  }
+  return '';
+}
+
+function setApiBaseUrl(url, persist = true) {
+  const normalized = normalizeApiBaseUrl(url);
+  if (!normalized) {
+    return false;
+  }
+  apiBaseUrl = normalized;
+  if (persist) {
+    localStorage.setItem(KEY_API_BASE_URL, normalized);
+  }
+  return true;
+}
+
+function getStoredApiBaseUrl() {
+  return normalizeApiBaseUrl(localStorage.getItem(KEY_API_BASE_URL) || '');
+}
+
+function getApiBaseUrl() {
+  if (apiBaseUrl) {
+    return apiBaseUrl;
+  }
+
+  const queryBackend = getBackendFromQuery();
+  if (queryBackend) {
+    setApiBaseUrl(queryBackend);
+    return apiBaseUrl;
+  }
+
+  const locationBackend = getBackendFromLocation();
+  if (locationBackend) {
+    setApiBaseUrl(locationBackend);
+    return apiBaseUrl;
+  }
+
+  const storedBackend = getStoredApiBaseUrl();
+  if (storedBackend) {
+    setApiBaseUrl(storedBackend, false);
+    return apiBaseUrl;
+  }
+
+  return '';
+}
+
+function apiUrl(path) {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const base = getApiBaseUrl();
+  if (!base) {
+    return path;
+  }
+
+  if (path.startsWith('/')) {
+    return `${base}${path}`;
+  }
+
+  return `${base}/${path}`;
+}
+
+function buildSubnetPrefixes(ipAddress) {
+  const values = new Set();
+
+  if (ipAddress) {
+    const parts = ipAddress.split('.').map((part) => Number(part));
+    if (parts.length === 4 && parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+      values.add(`${parts[0]}.${parts[1]}.${parts[2]}`);
+    }
+  }
+
+  const stored = getStoredApiBaseUrl();
+  if (stored) {
+    try {
+      const host = new URL(stored).hostname;
+      const parts = host.split('.').map((part) => Number(part));
+      if (parts.length === 4 && parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+        values.add(`${parts[0]}.${parts[1]}.${parts[2]}`);
+      }
+    } catch {
+    }
+  }
+
+  values.add('192.168.1');
+  values.add('192.168.0');
+  values.add('10.0.0');
+  values.add('172.16.0');
+
+  return [...values];
+}
+
+function buildDiscoveryCandidates(localIpv4) {
+  const prefixes = buildSubnetPrefixes(localIpv4);
+  const preferredSuffixes = [1, 2, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 150, 180, 200, 220, 240];
+  const candidates = [];
+  const seen = new Set();
+
+  const pushCandidate = (value) => {
+    const normalized = normalizeApiBaseUrl(value);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      candidates.push(normalized);
+    }
+  };
+
+  const queryBackend = getBackendFromQuery();
+  if (queryBackend) {
+    pushCandidate(queryBackend);
+  }
+
+  const storedBackend = getStoredApiBaseUrl();
+  if (storedBackend) {
+    pushCandidate(storedBackend);
+  }
+
+  const locationBackend = getBackendFromLocation();
+  if (locationBackend) {
+    pushCandidate(locationBackend);
+  }
+
+  for (const prefix of prefixes) {
+    for (const suffix of preferredSuffixes) {
+      pushCandidate(`http://${prefix}.${suffix}:${API_DISCOVERY_PORT}`);
+    }
+  }
+
+  for (const prefix of prefixes) {
+    for (let suffix = 1; suffix <= 254; suffix += 1) {
+      pushCandidate(`http://${prefix}.${suffix}:${API_DISCOVERY_PORT}`);
+    }
+  }
+
+  return candidates;
+}
+
+async function fetchHealth(baseUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), API_DISCOVERY_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/health`, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getLocalIpv4ViaWebRtc() {
+  const ctor = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+  if (!ctor) {
+    return '';
+  }
+
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      try {
+        peer.close();
+      } catch {
+      }
+      resolve('');
+    }, 1400);
+
+    const peer = new ctor({ iceServers: [] });
+    const finish = (value) => {
+      clearTimeout(timeout);
+      try {
+        peer.close();
+      } catch {
+      }
+      resolve(value || '');
+    };
+
+    const parseCandidate = (candidate) => {
+      const match = String(candidate || '').match(/(?:\s|^)(\d{1,3}(?:\.\d{1,3}){3})(?:\s|$)/);
+      if (!match) {
+        return '';
+      }
+      const ip = match[1];
+      if (ip.startsWith('127.') || ip === '0.0.0.0') {
+        return '';
+      }
+      return ip;
+    };
+
+    peer.onicecandidate = (event) => {
+      if (!event || !event.candidate || !event.candidate.candidate) {
+        return;
+      }
+      const ip = parseCandidate(event.candidate.candidate);
+      if (ip) {
+        finish(ip);
+      }
+    };
+
+    peer.createDataChannel('flpt-lan-probe');
+    peer
+      .createOffer()
+      .then((offer) => peer.setLocalDescription(offer))
+      .catch(() => finish(''));
+  });
+}
+
+async function discoverApiBaseUrl() {
+  const current = getApiBaseUrl();
+  if (current && await fetchHealth(current)) {
+    setApiBaseUrl(current);
+    return current;
+  }
+
+  if (apiDiscoveryPromise) {
+    return apiDiscoveryPromise;
+  }
+
+  apiDiscoveryPromise = (async () => {
+    const localIpv4 = await getLocalIpv4ViaWebRtc();
+    const candidates = buildDiscoveryCandidates(localIpv4);
+
+    for (let index = 0; index < candidates.length; index += API_DISCOVERY_BATCH_SIZE) {
+      const batch = candidates.slice(index, index + API_DISCOVERY_BATCH_SIZE);
+      const checks = await Promise.all(batch.map(async (base) => ({
+        base,
+        ok: await fetchHealth(base)
+      })));
+      const found = checks.find((entry) => entry.ok);
+      if (found) {
+        setApiBaseUrl(found.base);
+        return found.base;
+      }
+    }
+
+    throw new Error('Backend auto-discovery failed. Open app once with ?backend=http://<server-ip>:8080');
+  })();
+
+  try {
+    return await apiDiscoveryPromise;
+  } finally {
+    apiDiscoveryPromise = null;
+  }
+}
 
 const fmtBytes = (bytes) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -870,14 +1157,14 @@ async function loadQrCode() {
     const targetUrl = getPreferredUrl(net);
     currentLanUrl = targetUrl;
     els.qrUrlText.textContent = `Scan URL: ${targetUrl}`;
-    els.qrImage.src = `/api/qr?text=${encodeURIComponent(targetUrl)}`;
+    els.qrImage.src = apiUrl(`/api/qr?text=${encodeURIComponent(targetUrl)}`);
     els.qrImage.onclick = () => window.open(targetUrl, '_blank', 'noopener,noreferrer');
   } catch (error) {
     els.qrUrlText.textContent = `QR unavailable: ${error.message}`;
   }
 }
 
-async function copyLanLink() {
+  const streamUrl = apiUrl(`/api/realtime/stream?sessionToken=${encodeURIComponent(token)}`);
   if (!currentLanUrl) {
     setStatus('LAN link još nije spreman. Klikni Refresh QR.');
     return;
@@ -1008,11 +1295,25 @@ async function api(path, options = {}) {
     ...getAuthHeaders(),
     ...(options.headers || {})
   };
+  let response;
+  const targetPath = apiUrl(path);
 
-  const response = await fetch(path, {
-    headers: mergedHeaders,
-    ...options
-  });
+  try {
+    response = await fetch(targetPath, {
+      headers: mergedHeaders,
+      ...options
+    });
+  } catch (error) {
+    if (!path.startsWith('/api/')) {
+      throw error;
+    }
+
+    await discoverApiBaseUrl();
+    response = await fetch(apiUrl(path), {
+      headers: mergedHeaders,
+      ...options
+    });
+  }
 
   const contentType = response.headers.get('content-type') || '';
   const payload = contentType.includes('application/json') ? await response.json() : await response.text();
@@ -1020,7 +1321,7 @@ async function api(path, options = {}) {
   if (!response.ok) {
     const error = typeof payload === 'object' ? payload.error : payload;
 
-    if (response.status === 401 && path !== '/api/auth/session') {
+    if (response.status === 401 && !path.startsWith('/api/auth/session')) {
       setAuthSession(null);
       applyAuthSessionToUi();
       closeRealtimeStream();
@@ -2139,7 +2440,7 @@ async function downloadReportsExport() {
   }
 
   const format = els.exportReportsFormat && els.exportReportsFormat.value === 'csv' ? 'csv' : 'json';
-  const endpoint = `/api/moderation/reports/export?format=${encodeURIComponent(format)}&limit=3000`;
+  const endpoint = apiUrl(`/api/moderation/reports/export?format=${encodeURIComponent(format)}&limit=3000`);
   const response = await fetch(endpoint, {
     method: 'GET',
     headers: {
@@ -2469,7 +2770,7 @@ async function uploadLocalVideoById(id) {
     const chunkBlob = record.blob.slice(offset, offset + chunkSize);
     const chunkBuffer = await chunkBlob.arrayBuffer();
     const encryptedChunk = await encryptChunkForUpload(chunkBuffer, chunkCryptoKey, chunkEncryption);
-    const resp = await fetch(`/api/sessions/${sessionId}/chunks`, {
+    const resp = await fetch(apiUrl(`/api/sessions/${sessionId}/chunks`), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/octet-stream',
@@ -2607,7 +2908,7 @@ async function startRecording() {
     try {
       const chunk = await event.data.arrayBuffer();
       const encryptedChunk = await encryptChunkForUpload(chunk, currentChunkCryptoKeyB64, currentChunkEncryption);
-      const resp = await fetch(`/api/sessions/${currentSessionId}/chunks`, {
+      const resp = await fetch(apiUrl(`/api/sessions/${currentSessionId}/chunks`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/octet-stream',
@@ -2964,6 +3265,15 @@ els.installBtn.addEventListener('click', async () => {
 });
 
 async function bootstrap() {
+  try {
+    const discovered = await discoverApiBaseUrl();
+    if (discovered) {
+      setStatus(`Connected to backend ${discovered}`);
+    }
+  } catch {
+    setStatus('Offline/LAN discovery mode. Backend will be retried automatically.');
+  }
+
   refreshCaptureCompatibilityHint();
   setNetworkHint();
   await ensureAuthSession();

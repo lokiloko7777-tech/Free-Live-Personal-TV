@@ -265,22 +265,19 @@ Ovaj repo sada ima Capacitor Android packaging.
 1. Pokreni backend/server (na mašini dostupnoj telefonu):
 	- `npm install`
 	- `npm run dev`
-2. Postavi URL servera koji telefon može da otvori (LAN IP ili domen):
-	- primer LAN: `FLPT_APP_URL=http://192.168.1.50:8080`
-	- primer domen: `FLPT_APP_URL=https://tv.example.com`
-3. Postavi Android SDK putanju (obavezno za build):
+2. Postavi Android SDK putanju (obavezno za build):
 	- `export ANDROID_SDK_ROOT=/path/to/Android/Sdk`
-4. Prvo generisanje Android projekta:
-	- `FLPT_APP_URL=http://192.168.1.50:8080 npm run android:init`
-5. Build debug APK:
-	- `FLPT_APP_URL=http://192.168.1.50:8080 npm run android:apk:debug`
-6. APK putanja:
+3. Prvo generisanje Android projekta:
+	- `npm run android:init`
+4. Build debug APK:
+	- `npm run android:apk:debug`
+5. APK putanja:
 	- `android/app/build/outputs/apk/debug/app-debug.apk`
 
 Napomene:
-- Za `http://` URL Android će dozvoliti cleartext samo za taj način rada (LAN/dev).
-- Za produkciju koristi `https://` domen.
-- Ako menjaš server URL, ponovo pokreni `android:sync` ili direktno `android:apk:debug`.
+- APK sada automatski otkriva backend na LAN-u (DHCP IP) i ne zahteva fiksnu IP adresu.
+- Ako želiš hard override, otvori app kao: `...?backend=http://192.168.1.50:8080`.
+- Alternativno možeš bake-ovati fiksni URL u APK tokom build-a: `FLPT_APP_URL=https://tv.example.com npm run android:apk:debug`.
 
 ### Release APK / AAB (potpisano)
 
@@ -294,9 +291,9 @@ Napomene:
 3. Android SDK putanja:
 	- `export ANDROID_SDK_ROOT=/path/to/Android/Sdk`
 4. Build release APK:
-	- `FLPT_APP_URL=https://your-domain.com npm run android:apk:release`
+	- `npm run android:apk:release`
 5. Build release AAB (Play Store):
-	- `FLPT_APP_URL=https://your-domain.com npm run android:aab:release`
+	- `npm run android:aab:release`
 
 Output putanje:
 - APK: `android/app/build/outputs/apk/release/app-release.apk`
